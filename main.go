@@ -18,10 +18,15 @@ func (hs HostSwitch) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+const (
+	victimBaseUri = "http://victim-csp.buglloc.com:9001"
+	evilBaseUri   = "http://evil-csp.buglloc.com:9001"
+)
+
 func main() {
 	hs := make(HostSwitch)
 	hs["victim"] = victim.NewVictimRouter()
-	hs["evil"] = evil.NewEvilRouter()
+	hs["evil"] = evil.NewEvilRouter(victimBaseUri, evilBaseUri)
 
 	http.ListenAndServe(":9001", hs)
 }

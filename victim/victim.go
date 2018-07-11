@@ -34,9 +34,11 @@ func NewVictimRouter() http.Handler {
 	r := gin.Default()
 	r.Static("/static", "./static")
 	r.LoadHTMLGlob("templates/victim/*")
+
 	r.GET("/", func(c *gin.Context) {
 		c.HTML(200, "index.min.html", gin.H{"nonce": nonce()})
 	})
+
 	r.POST("/message", func(c *gin.Context) {
 		content := c.PostForm("content")
 		if content == "" {
@@ -51,6 +53,7 @@ func NewVictimRouter() http.Handler {
 		}
 		c.Redirect(302, "/message/"+id)
 	})
+
 	r.GET("/message/:uuid", func(c *gin.Context) {
 		content, ok := getMessage(c.Param("uuid"))
 		if !ok || content == "" {
@@ -63,6 +66,8 @@ func NewVictimRouter() http.Handler {
 			"nonce":   nonce(),
 		})
 	})
+
+	// TODO: add GUI
 	r.POST("/message/:uuid", func(c *gin.Context) {
 		content := c.PostForm("content")
 		if content == "" {
